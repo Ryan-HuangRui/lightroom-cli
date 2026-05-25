@@ -1757,8 +1757,86 @@ _register(
     ),
 )
 
+# --- export ---
+_EXPORT_PARAMS = [
+    ParamSchema(
+        "outputDir",
+        ParamType.STRING,
+        required=True,
+        description="Destination directory for exported files",
+    ),
+    ParamSchema(
+        "format",
+        ParamType.ENUM,
+        default="JPEG",
+        description="Export format",
+        enum_values=["JPEG", "TIFF", "DNG", "ORIGINAL"],
+    ),
+    ParamSchema(
+        "quality",
+        ParamType.INTEGER,
+        default=95,
+        min=1,
+        max=100,
+        description="JPEG quality from 1 to 100",
+    ),
+    ParamSchema(
+        "colorSpace",
+        ParamType.ENUM,
+        default="sRGB",
+        description="Output color space",
+        enum_values=["sRGB", "AdobeRGB", "ProPhotoRGB"],
+    ),
+    ParamSchema(
+        "resizeLongEdge",
+        ParamType.INTEGER,
+        min=1,
+        description="Optional long-edge pixel constraint",
+    ),
+    ParamSchema(
+        "filenameSuffix",
+        ParamType.STRING,
+        description="Suffix appended before the exported file extension",
+    ),
+    ParamSchema(
+        "overwrite",
+        ParamType.BOOLEAN,
+        default=False,
+        description="Overwrite existing exported files when Lightroom reports a collision",
+    ),
+]
 
-# ---------------------------------------------------------------------------
+_register(
+    CommandSchema(
+        "export.photo",
+        "export.photo",
+        "Export one photo through Lightroom Classic",
+        params=[
+            ParamSchema("photoId", ParamType.STRING, required=True, description="Photo local ID to export"),
+            *_EXPORT_PARAMS,
+        ],
+        mutating=True,
+        timeout=300.0,
+        response_fields=["exported", "files", "results"],
+        supports_dry_run=True,
+    ),
+    CommandSchema(
+        "export.batch",
+        "export.batch",
+        "Export multiple photos through Lightroom Classic",
+        params=[
+            ParamSchema("photoIds", ParamType.JSON_ARRAY, required=True, description="Photo local IDs to export"),
+            *_EXPORT_PARAMS,
+        ],
+        mutating=True,
+        timeout=900.0,
+        response_fields=["exported", "failed", "files", "results"],
+        supports_dry_run=True,
+    ),
+)
+
+
+
 # Lookup functions
 # ---------------------------------------------------------------------------
 

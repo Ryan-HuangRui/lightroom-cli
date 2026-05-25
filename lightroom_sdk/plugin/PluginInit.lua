@@ -172,6 +172,16 @@ local function loadPhase4Modules()
         return false
     end
 
+    -- Load ExportModule
+    success, ExportModule = LrTasks.pcall(require, 'ExportModule')
+    if success then
+        _G.LightroomPythonBridge.ExportModule = ExportModule
+        Logger:info("ExportModule loaded successfully")
+    else
+        Logger:error("Failed to load ExportModule: " .. tostring(ExportModule))
+        return false
+    end
+
     -- Load SelectionModule
     success, SelectionModule = LrTasks.pcall(require, 'SelectionModule')
     if success then
@@ -243,12 +253,14 @@ local function registerApiCommands()
     local DevelopModule = _G.LightroomPythonBridge.DevelopModule
     local CatalogModule = _G.LightroomPythonBridge.CatalogModule
     local PreviewModule = _G.LightroomPythonBridge.PreviewModule
+    local ExportModule = _G.LightroomPythonBridge.ExportModule
 
     Logger:info("Module availability - Develop: " .. tostring(DevelopModule ~= nil) ..
                 ", Catalog: " .. tostring(CatalogModule ~= nil) ..
-                ", Preview: " .. tostring(PreviewModule ~= nil))
+                ", Preview: " .. tostring(PreviewModule ~= nil) ..
+                ", Export: " .. tostring(ExportModule ~= nil))
 
-    if not DevelopModule or not CatalogModule or not PreviewModule then
+    if not DevelopModule or not CatalogModule or not PreviewModule or not ExportModule then
         Logger:error("One or more Phase 4 modules are nil - cannot register commands")
         return
     end
@@ -386,6 +398,11 @@ local function registerApiCommands()
     router:register("preview.generateBatchPreviews", PreviewModule.generateBatchPreviews, "sync")
     router:register("preview.getPreviewInfo", PreviewModule.getPreviewInfo, "sync")
     router:register("preview.getPreviewChunk", PreviewModule.getPreviewChunk, "sync")
+
+    -- Export module commands
+    Logger:info("Registering export commands...")
+    router:register("export.photo", ExportModule.exportPhoto, "sync")
+    router:register("export.batch", ExportModule.exportBatch, "sync")
 
     -- Selection module commands
     local SelectionModule = _G.LightroomPythonBridge.SelectionModule
