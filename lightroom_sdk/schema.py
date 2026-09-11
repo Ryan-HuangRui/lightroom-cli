@@ -79,7 +79,15 @@ _register(
         "system.status",
         "Get bridge status",
         timeout=5.0,
-        response_fields=["status", "uptime", "version", "connections"],
+        response_fields=[
+            "status",
+            "uptime",
+            "version",
+            "connections",
+            "protocolVersion",
+            "capabilities",
+            "bridge_contract",
+        ],
     ),
     CommandSchema(
         "system.reconnect",
@@ -172,6 +180,35 @@ _register(
         mutating=True,
         supports_dry_run=True,
         response_fields=["applied", "settings"],
+    ),
+    CommandSchema(
+        "develop.applySettingsVerified",
+        "develop.apply-verified",
+        "Fail-closed object develop write contract pending real Lightroom validation",
+        params=[
+            ParamSchema("photoId", ParamType.STRING, required=True, description="Exact target photo instance ID"),
+            ParamSchema(
+                "expectedStateHash",
+                ParamType.STRING,
+                required=True,
+                description="Fingerprint of the verified starting develop state",
+            ),
+            ParamSchema(
+                "operationId",
+                ParamType.STRING,
+                required=True,
+                description="Stable idempotency identifier for this write intent",
+            ),
+            ParamSchema(
+                "settings",
+                ParamType.JSON_OBJECT,
+                required=True,
+                description="Absolute develop target values",
+            ),
+        ],
+        mutating=True,
+        supports_dry_run=True,
+        response_fields=["photoId", "operationId", "actualStateHash", "results", "verification"],
     ),
     CommandSchema(
         "develop.batchApplySettings",

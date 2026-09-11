@@ -6,6 +6,18 @@
 local LrLogger = import 'LrLogger'
 local LrTasks = import 'LrTasks'
 
+-- Protocol v2 adds an explicit, machine-readable safety handshake.  Capabilities
+-- remain false until their object identity and failure semantics pass real
+-- Lightroom tests; callers must not infer safety from command availability.
+local BRIDGE_VERSION = "1.2.2"
+local BRIDGE_PROTOCOL_VERSION = "2"
+local BRIDGE_CAPABILITIES = {
+    safe_object_develop_write = false,
+    verified_export_result = false,
+    virtual_copy_returns_identity = false,
+    collection_member_sync = false
+}
+
 -- Initialize global plugin state in _G
 -- This makes the plugin state accessible from all modules
 _G.LightroomPythonBridge = {
@@ -212,8 +224,9 @@ local function registerSystemCommands()
             result = {
                 pong = true,
                 timestamp = os.time(),
-                version = "1.2.1",
-                protocolVersion = "1"
+                version = BRIDGE_VERSION,
+                protocolVersion = BRIDGE_PROTOCOL_VERSION,
+                capabilities = BRIDGE_CAPABILITIES
             }
         })
     end)
@@ -224,6 +237,9 @@ local function registerSystemCommands()
         callback({
             result = {
                 connected = SimpleSocketBridge.isRunning(),
+                version = BRIDGE_VERSION,
+                protocolVersion = BRIDGE_PROTOCOL_VERSION,
+                capabilities = BRIDGE_CAPABILITIES,
                 stats = router:getStats(),
                 uptime = os.time() - (_G.LightroomPythonBridge.startTime or os.time())
             }
@@ -269,6 +285,7 @@ local function registerApiCommands()
     Logger:info("Registering develop commands...")
     router:register("develop.getSettings", DevelopModule.getSettings, "sync")
     router:register("develop.applySettings", DevelopModule.applySettings, "sync")
+    router:register("develop.applySettingsVerified", DevelopModule.applySettingsVerified, "sync")
     router:register("develop.batchApplySettings", DevelopModule.batchApplySettings, "sync")
     router:register("develop.batchSetValue", DevelopModule.batchSetValue, "sync")
     router:register("develop.getValue", DevelopModule.getValue, "sync")

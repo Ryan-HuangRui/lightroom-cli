@@ -34,7 +34,12 @@ def sync_init_py(version: str) -> bool:
 def sync_plugin_init_lua(version: str) -> bool:
     path = ROOT / "lightroom_sdk" / "plugin" / "PluginInit.lua"
     content = path.read_text()
-    new_content = re.sub(r'version\s*=\s*"[^"]*"', f'version = "{version}"', content, count=1)
+    new_content = re.sub(
+        r'BRIDGE_VERSION\s*=\s*"[^"]*"',
+        f'BRIDGE_VERSION = "{version}"',
+        content,
+        count=1,
+    )
     if content != new_content:
         path.write_text(new_content)
         print(f"Updated: {path.relative_to(ROOT)}")

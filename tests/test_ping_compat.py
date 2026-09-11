@@ -6,7 +6,7 @@ def _expected_ping_response():
     return {
         "pong": True,
         "version": _read_pyproject_version(),
-        "protocolVersion": "1",
+        "protocolVersion": "2",
     }
 
 
@@ -35,7 +35,7 @@ def test_ping_response_has_protocol_version():
     """ping レスポンスに protocolVersion フィールドが存在すること"""
     resp = _expected_ping_response()
     assert "protocolVersion" in resp
-    assert resp["protocolVersion"] == "1"
+    assert resp["protocolVersion"] == "2"
 
 
 def test_ping_version_matches_pyproject():
@@ -51,4 +51,4 @@ def test_plugin_init_lua_has_protocol_version():
 
     root = Path(__file__).resolve().parent.parent
     lua_content = (root / "lightroom_sdk" / "plugin" / "PluginInit.lua").read_text()
-    assert 'protocolVersion = "1"' in lua_content
+    assert 'BRIDGE_PROTOCOL_VERSION = "2"' in lua_content

@@ -28,7 +28,7 @@ def read_init_py_version() -> str | None:
 
 def read_plugin_init_lua_version() -> str | None:
     path = ROOT / "lightroom_sdk" / "plugin" / "PluginInit.lua"
-    m = re.search(r'version\s*=\s*"([^"]*)"', path.read_text())
+    m = re.search(r'BRIDGE_VERSION\s*=\s*"([^"]*)"', path.read_text())
     return m.group(1) if m else None
 
 
