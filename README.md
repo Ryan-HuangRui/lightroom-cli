@@ -120,6 +120,10 @@ lr system ping
 lr system status
 ```
 
+`lr -o json system status` includes a `bridge_contract` containing the loaded plugin version, protocol version, schema hash, version-match result, and explicit capabilities. Capabilities are conservative: a command being registered does not mean it is safe for unattended automation.
+
+The `develop apply-verified` command reserves the object-level write contract required by Lumenflow. It currently fails closed with `CAPABILITY_NOT_VERIFIED`; `safe_object_develop_write` and `verified_export_result` remain false until real-Lightroom identity, concurrency, readback, rerun, and export tests pass. Existing `develop apply` behavior is retained for compatibility but must not be treated as verified object-level automation.
+
 > **Note:** The bridge does not start automatically. You must select "Start CLI Bridge" from the menu each time you launch Lightroom.
 
 ## Usage Examples

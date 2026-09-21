@@ -31,8 +31,21 @@ def status(ctx, **kwargs):
         from lightroom_sdk.schema import get_schema_hash
 
         if isinstance(data, dict):
-            data["schema_hash"] = get_schema_hash()
-            data["cli_version"] = _get_cli_version()
+            cli_version = _get_cli_version()
+            plugin_version = data.get("version")
+            protocol_version = data.get("protocolVersion")
+            capabilities = data.get("capabilities") if isinstance(data.get("capabilities"), dict) else {}
+            schema_hash = get_schema_hash()
+            data["schema_hash"] = schema_hash
+            data["cli_version"] = cli_version
+            data["bridge_contract"] = {
+                "cli_version": cli_version,
+                "plugin_version": plugin_version,
+                "protocol_version": protocol_version,
+                "schema_hash": schema_hash,
+                "version_match": bool(plugin_version) and plugin_version == cli_version,
+                "capabilities": capabilities,
+            }
         return data
 
     execute_command(ctx, "system.status", {}, post_process=_add_cli_metadata)

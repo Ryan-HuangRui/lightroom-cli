@@ -112,6 +112,41 @@ def apply_settings(ctx, settings, photo_id, dry_run, **kwargs):
     execute_command(ctx, "develop.applySettings", params)
 
 
+@develop.command("apply-verified")
+@click.option("--settings", required=True, help="JSON object of absolute target settings")
+@click.option("--photo-id", required=True, help="Exact target photo instance ID")
+@click.option("--expected-state-hash", required=True, help="Verified starting-state fingerprint")
+@click.option("--operation-id", required=True, help="Stable idempotency identifier")
+@click.option("--dry-run", is_flag=True, default=False, help="Preview without executing")
+@json_input_options
+@click.pass_context
+def apply_settings_verified(ctx, settings, photo_id, expected_state_hash, operation_id, dry_run, **kwargs):
+    """Use the fail-closed object write contract (not enabled until real validation)."""
+    try:
+        parsed = json.loads(settings)
+    except json.JSONDecodeError as e:
+        click.echo(
+            OutputFormatter.format_error(
+                f"Invalid JSON: {e}",
+                ctx.obj.get("output", "text") if ctx.obj else "text",
+                code="VALIDATION_ERROR",
+            ),
+            err=True,
+        )
+        ctx.exit(1)
+        return
+    execute_command(
+        ctx,
+        "develop.applySettingsVerified",
+        {
+            "photoId": photo_id,
+            "expectedStateHash": expected_state_hash,
+            "operationId": operation_id,
+            "settings": parsed,
+        },
+    )
+
+
 @develop.command("auto-wb")
 @click.option("--dry-run", is_flag=True, default=False, help="Preview without executing")
 @json_input_options

@@ -6,6 +6,18 @@
 local LrLogger = import 'LrLogger'
 local LrTasks = import 'LrTasks'
 
+-- Protocol v2 adds an explicit, machine-readable safety handshake.  Capabilities
+-- remain false until their object identity and failure semantics pass real
+-- Lightroom tests; callers must not infer safety from command availability.
+local BRIDGE_VERSION = "1.2.2"
+local BRIDGE_PROTOCOL_VERSION = "2"
+local BRIDGE_CAPABILITIES = {
+    safe_object_develop_write = false,
+    verified_export_result = false,
+    virtual_copy_returns_identity = false,
+    collection_member_sync = false
+}
+
 -- Initialize global plugin state in _G
 -- This makes the plugin state accessible from all modules
 _G.LightroomPythonBridge = {
@@ -172,6 +184,16 @@ local function loadPhase4Modules()
         return false
     end
 
+    -- Load ExportModule
+    success, ExportModule = LrTasks.pcall(require, 'ExportModule')
+    if success then
+        _G.LightroomPythonBridge.ExportModule = ExportModule
+        Logger:info("ExportModule loaded successfully")
+    else
+        Logger:error("Failed to load ExportModule: " .. tostring(ExportModule))
+        return false
+    end
+
     -- Load SelectionModule
     success, SelectionModule = LrTasks.pcall(require, 'SelectionModule')
     if success then
@@ -202,8 +224,9 @@ local function registerSystemCommands()
             result = {
                 pong = true,
                 timestamp = os.time(),
-                version = "1.2.1",
-                protocolVersion = "1"
+                version = BRIDGE_VERSION,
+                protocolVersion = BRIDGE_PROTOCOL_VERSION,
+                capabilities = BRIDGE_CAPABILITIES
             }
         })
     end)
@@ -214,6 +237,9 @@ local function registerSystemCommands()
         callback({
             result = {
                 connected = SimpleSocketBridge.isRunning(),
+                version = BRIDGE_VERSION,
+                protocolVersion = BRIDGE_PROTOCOL_VERSION,
+                capabilities = BRIDGE_CAPABILITIES,
                 stats = router:getStats(),
                 uptime = os.time() - (_G.LightroomPythonBridge.startTime or os.time())
             }
@@ -243,12 +269,14 @@ local function registerApiCommands()
     local DevelopModule = _G.LightroomPythonBridge.DevelopModule
     local CatalogModule = _G.LightroomPythonBridge.CatalogModule
     local PreviewModule = _G.LightroomPythonBridge.PreviewModule
+    local ExportModule = _G.LightroomPythonBridge.ExportModule
 
     Logger:info("Module availability - Develop: " .. tostring(DevelopModule ~= nil) ..
                 ", Catalog: " .. tostring(CatalogModule ~= nil) ..
-                ", Preview: " .. tostring(PreviewModule ~= nil))
+                ", Preview: " .. tostring(PreviewModule ~= nil) ..
+                ", Export: " .. tostring(ExportModule ~= nil))
 
-    if not DevelopModule or not CatalogModule or not PreviewModule then
+    if not DevelopModule or not CatalogModule or not PreviewModule or not ExportModule then
         Logger:error("One or more Phase 4 modules are nil - cannot register commands")
         return
     end
@@ -257,6 +285,7 @@ local function registerApiCommands()
     Logger:info("Registering develop commands...")
     router:register("develop.getSettings", DevelopModule.getSettings, "sync")
     router:register("develop.applySettings", DevelopModule.applySettings, "sync")
+    router:register("develop.applySettingsVerified", DevelopModule.applySettingsVerified, "sync")
     router:register("develop.batchApplySettings", DevelopModule.batchApplySettings, "sync")
     router:register("develop.batchSetValue", DevelopModule.batchSetValue, "sync")
     router:register("develop.getValue", DevelopModule.getValue, "sync")
@@ -386,6 +415,11 @@ local function registerApiCommands()
     router:register("preview.generateBatchPreviews", PreviewModule.generateBatchPreviews, "sync")
     router:register("preview.getPreviewInfo", PreviewModule.getPreviewInfo, "sync")
     router:register("preview.getPreviewChunk", PreviewModule.getPreviewChunk, "sync")
+
+    -- Export module commands
+    Logger:info("Registering export commands...")
+    router:register("export.photo", ExportModule.exportPhoto, "sync")
+    router:register("export.batch", ExportModule.exportBatch, "sync")
 
     -- Selection module commands
     local SelectionModule = _G.LightroomPythonBridge.SelectionModule

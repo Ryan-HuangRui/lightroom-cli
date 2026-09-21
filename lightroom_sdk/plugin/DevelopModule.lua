@@ -318,124 +318,6 @@ end
 
 -- Apply develop settings with undo support
 function DevelopModule.applySettings(params, callback)
-    -- Add logging to trace the issue
-    local logger = getLogger()
-    logger:info("TRACE: DevelopModule.applySettings called")
-    
-    local photoId = params.photoId
-    if not tonumber(photoId) or tonumber(photoId) <= 0 then
-        wrappedCallback(ErrorUtils.createError(ErrorUtils.CODES.INVALID_PARAM_VALUE, 
-            "Photo ID must be a positive number"))
-        return
-    end
-    
-    -- Ensure modules are loaded
-    local moduleSuccess, moduleError = ErrorUtils.safeCall(ensureLrModules)
-    if not moduleSuccess then
-        wrappedCallback(ErrorUtils.createError(ErrorUtils.CODES.RESOURCE_UNAVAILABLE, 
-            "Failed to load Lightroom modules: " .. tostring(moduleError)))
-        return
-    end
-    
-    local logger = getLogger()
-    logger:debug("Getting develop settings for photo: " .. photoId)
-    
-    local catalog = LrApplication.activeCatalog()
-    
-    catalog:withReadAccessDo(function()
-        -- Find photo by ID
-        local photoSuccess, photo = ErrorUtils.safeCall(function()
-            return catalog:getPhotoByLocalId(tonumber(photoId))
-        end)
-        
-        if not photoSuccess or not photo then
-            wrappedCallback(ErrorUtils.createError(ErrorUtils.CODES.PHOTO_NOT_FOUND, 
-                "Photo with ID " .. photoId .. " not found"))
-            return
-        end
-        
-        -- Check if photo can be developed
-        local metadataSuccess, fileFormat = ErrorUtils.safeCall(function()
-            return photo:getRawMetadata("fileFormat")
-        end)
-        
-        local isVirtualCopy = false
-        ErrorUtils.safeCall(function()
-            isVirtualCopy = photo:getRawMetadata("isVirtualCopy")
-        end)
-        
-        if not metadataSuccess or not fileFormat or 
-           (fileFormat ~= "RAW" and fileFormat ~= "DNG" and not isVirtualCopy) then
-            wrappedCallback(ErrorUtils.createError(ErrorUtils.CODES.INVALID_PHOTO_TYPE, 
-                "Photo cannot be developed (not a raw file or virtual copy)"))
-            return
-        end
-        
-        local settings = {}
-        local errors = {}
-        
-        -- Read core develop settings
-        for _, settingName in ipairs(CORE_DEVELOP_SETTINGS) do
-            local success, value = ErrorUtils.safeCall(function()
-                return LrDevelopController.getValue(settingName)
-            end)
-            
-            if success and value ~= nil then
-                settings[settingName] = value
-            else
-                errors[settingName] = "Unable to read value"
-            end
-        end
-        
-        -- Read HSL/Color settings
-        for _, settingName in ipairs(HSL_COLOR_SETTINGS) do
-            local success, value = ErrorUtils.safeCall(function()
-                return LrDevelopController.getValue(settingName)
-            end)
-            
-            if success and value ~= nil then
-                settings[settingName] = value
-            end
-        end
-        
-        -- Try advanced settings (don't fail if unavailable)
-        for _, settingName in ipairs(ADVANCED_DEVELOP_SETTINGS) do
-            local success, value = ErrorUtils.safeCall(function()
-                return LrDevelopController.getValue(settingName)
-            end)
-            
-            if success and value ~= nil then
-                settings[settingName] = value
-            end
-        end
-        
-        -- Get photo metadata
-        local metadata = {
-            photoId = photo.localIdentifier,
-            fileFormat = fileFormat,
-            isVirtualCopy = isVirtualCopy
-        }
-        
-        -- Safely get filename
-        ErrorUtils.safeCall(function()
-            metadata.filename = photo:getFormattedMetadata("fileName")
-        end)
-        
-        local settingsCount = 0
-        for _ in pairs(settings) do settingsCount = settingsCount + 1 end
-        
-        logger:info("Retrieved " .. settingsCount .. " develop settings for photo " .. photoId)
-        
-        wrappedCallback(ErrorUtils.createSuccess({
-            settings = settings,
-            metadata = metadata,
-            errors = next(errors) and errors or nil
-        }, "Develop settings retrieved successfully"))
-    end)
-end
-
--- Apply develop settings with undo support
-function DevelopModule.applySettings(params, callback)
     ensureLrModules()
     local logger = getLogger()
     
@@ -579,10 +461,9 @@ function DevelopModule.applySettings(params, callback)
         logger:debug("About to use LrUndo.performWithUndo - LrUndo is: " .. tostring(LrUndo))
         logger:debug("LrUndo.performWithUndo is: " .. tostring(LrUndo and LrUndo.performWithUndo))
         
+        local appliedCount = 0
         local success, error = ErrorUtils.safeCall(function()
             LrUndo.performWithUndo("Apply Develop Settings", function()
-                local appliedCount = 0
-
                 for settingName, value in pairs(validSettings) do
                     local applySuccess, applyError = ErrorUtils.safeCall(function()
                         LrDevelopController.setValue(settingName, value)
@@ -603,7 +484,7 @@ function DevelopModule.applySettings(params, callback)
             logger:info("Successfully applied develop settings")
             callback({
                 result = {
-                    applied = validCount,
+                    applied = appliedCount,
                     invalid = next(invalidSettings) and invalidSettings or nil
                 }
             })
@@ -617,6 +498,20 @@ function DevelopModule.applySettings(params, callback)
             })
         end
     end)
+end
+
+-- Reserved fail-closed contract for Lumenflow's object-level write probe.
+-- Do not delegate to the legacy Develop controller path: that path has not
+-- proven target identity, precondition checking, or idempotent recovery.
+function DevelopModule.applySettingsVerified(params, callback)
+    callback({
+        success = false,
+        error = {
+            code = "CAPABILITY_NOT_VERIFIED",
+            message = "Verified object-level develop writes are disabled until real Lightroom validation",
+            severity = "error"
+        }
+    })
 end
 
 -- Batch apply settings to multiple photos

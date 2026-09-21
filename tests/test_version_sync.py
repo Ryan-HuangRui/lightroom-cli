@@ -41,7 +41,7 @@ def test_sync_version_updates_plugin_init_lua():
 
     version = _read_pyproject_version()
     lua_content = (ROOT / "lightroom_sdk" / "plugin" / "PluginInit.lua").read_text()
-    assert f'version = "{version}"' in lua_content
+    assert f'BRIDGE_VERSION = "{version}"' in lua_content
 
 
 def test_sync_version_updates_info_lua():
